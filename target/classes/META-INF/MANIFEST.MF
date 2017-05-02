@@ -1,0 +1,20 @@
+Manifest-Version: 1.0
+Bnd-LastModified: 1493755934352
+Build-Jdk: 1.8.0_92
+Built-By: kevin
+Bundle-Activator: tigase.archive.Activator
+Bundle-Description: Implementation of Message Archiving component for Ti
+ gase XMPP Server.
+Bundle-ManifestVersion: 2
+Bundle-Name: Tigase Message Archiving Component
+Bundle-SymbolicName: PushService;singleton=true
+Bundle-Version: 0.0.1
+Created-By: Apache Maven Bundle Plugin
+Export-Package: tech.jiangtao.pushservice;version="1.0.0";uses:="tigase.
+ server"
+Implementation-Build: 3/e186a074 (2017-05-02/20:12:07)
+Implementation-Title: Tigase Message Archiving Component
+Implementation-Version: 0.0.1-b3/e186a074
+Import-Package: redis.clients.jedis;version="[2.9,3)",tigase.archive,tig
+ ase.server;version="[5.3,6)",tigase.xml;version="[5.3,6)"
+Tool: Bnd-2.1.0.20130426-122213
