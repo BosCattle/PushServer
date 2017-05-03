@@ -12,7 +12,9 @@ import redis.clients.jedis.Jedis;
  **/
 public interface RedisRepository {
 
-  public Jedis init();
+  public Jedis init(String address);
+
+  public Jedis get();
 
   public void subscribe(String channel);
 

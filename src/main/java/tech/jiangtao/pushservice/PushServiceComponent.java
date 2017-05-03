@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.logging.Logger;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPubSub;
-import tech.jiangtao.pushservice.db.RedisRepository;
 import tigase.server.AbstractMessageReceiver;
 import tigase.server.Packet;
 import tigase.xml.Element;
