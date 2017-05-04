@@ -2,10 +2,11 @@ package tech.jiangtao.pushservice.db;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPubSub;
+import tigase.server.Packet;
 
 /**
  * @class: RedisRepositoryImpl </br>
- * @description:  </br>
+ * @description: </br>
  * @creator: kevin </br>
  * @email: jiangtao103cp@gmail.com </br>
  * @date: 03/05/2017 04:52</br>
@@ -14,7 +15,6 @@ import redis.clients.jedis.JedisPubSub;
 public class RedisRepositoryImpl implements RedisRepository {
 
   private Jedis mJedis;
-  private JedisPubSub jedisPubSub;
 
   @Override public Jedis init(String address) {
     mJedis = new Jedis(address);
@@ -25,25 +25,11 @@ public class RedisRepositoryImpl implements RedisRepository {
     return mJedis;
   }
 
-  @Override public void subscribe(String channel) {
-    jedisPubSub = new JedisPubSub() {
-      @Override public void onMessage(String channel, String message) {
-        super.onMessage(channel, message);
-        excute(channel,message);
-      }
-
-      @Override public void onPSubscribe(String pattern, int subscribedChannels) {
-        super.onPSubscribe(pattern, subscribedChannels);
-      }
-    };
-    mJedis.subscribe(jedisPubSub,channel);
+  @Override public void subscribe(JedisPubSub jedisPubSub, String channel) {
+    mJedis.subscribe(jedisPubSub, channel);
   }
 
-  @Override public void excute(String channel, String message) {
-
-  }
-
-  @Override public void unSubscribe(String channel) {
-    jedisPubSub.unsubscribe();
+  @Override public void unSubscribe(String channel, JedisPubSub jedisPubSub) {
+    jedisPubSub.unsubscribe(channel);
   }
 }

@@ -1,5 +1,5 @@
 Manifest-Version: 1.0
-Bnd-LastModified: 1493755934352
+Bnd-LastModified: 1493884154424
 Build-Jdk: 1.8.0_92
 Built-By: kevin
 Bundle-Activator: tigase.archive.Activator
@@ -10,11 +10,14 @@ Bundle-Name: Tigase Message Archiving Component
 Bundle-SymbolicName: PushService;singleton=true
 Bundle-Version: 0.0.1
 Created-By: Apache Maven Bundle Plugin
-Export-Package: tech.jiangtao.pushservice;version="1.0.0";uses:="tigase.
- server"
-Implementation-Build: 3/e186a074 (2017-05-02/20:12:07)
+Export-Package: tech.jiangtao.pushservice.db;version="0.0.1";uses:="redi
+ s.clients.jedis",tech.jiangtao.pushservice;version="1.0.0";uses:="tigas
+ e.conf,tigase.server,tigase.stats,tigase.xml,tigase.xmpp"
+Implementation-Build: 6/354e5378 (2017-05-04/07:49:01)
 Implementation-Title: Tigase Message Archiving Component
-Implementation-Version: 0.0.1-b3/e186a074
+Implementation-Version: 0.0.1-b6/354e5378
 Import-Package: redis.clients.jedis;version="[2.9,3)",tigase.archive,tig
- ase.server;version="[5.3,6)",tigase.xml;version="[5.3,6)"
+ ase.conf;version="[5.3,6)",tigase.db;version="[5.3,6)",tigase.server;ve
+ rsion="[5.3,6)",tigase.stats;version="[5.3,6)",tigase.xml;version="[5.3
+ ,6)",tigase.xmpp;version="[5.3,6)"
 Tool: Bnd-2.1.0.20130426-122213

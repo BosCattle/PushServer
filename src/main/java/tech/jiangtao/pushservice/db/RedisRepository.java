@@ -1,10 +1,12 @@
 package tech.jiangtao.pushservice.db;
 
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPubSub;
+import tigase.server.Packet;
 
 /**
  * @class: RedisRepository </br>
- * @description:  </br>
+ * @description: </br>
  * @creator: kevin </br>
  * @email: jiangtao103cp@gmail.com </br>
  * @date: 03/05/2017 04:38</br>
@@ -16,9 +18,7 @@ public interface RedisRepository {
 
   public Jedis get();
 
-  public void subscribe(String channel);
+  public void subscribe(JedisPubSub jedisPubSub, String channel);
 
-  public void excute(String channel,String message);
-
-  public void unSubscribe(String channel);
+  public void unSubscribe(String channel,JedisPubSub jedisPubSub);
 }

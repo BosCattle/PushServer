@@ -1,6 +1,8 @@
 package tech.jiangtao.pushservice.db;
 
+import java.util.Map;
 import tech.jiangtao.pushservice.model.TigPubsub;
+import tigase.db.DBInitException;
 import tigase.db.Repository;
 import tigase.db.TigaseDBException;
 
@@ -12,9 +14,17 @@ import tigase.db.TigaseDBException;
  * @date: 03/05/2017 04:47</br>
  * @version: 0.0.1 </br>
  **/
-public interface PubSubRepository extends Repository{
+public class PubSubRepositoryImpl implements PubSubRepository{
 
-  void release();
+  @Override public void release() {
 
-  int insertPubsubMessage(TigPubsub pubsub) throws TigaseDBException;
+  }
+
+  @Override public int insertPubsubMessage(TigPubsub pubsub) throws TigaseDBException {
+    return 0;
+  }
+
+  @Override public void initRepository(String s, Map<String, String> map) throws DBInitException {
+
+  }
 }
