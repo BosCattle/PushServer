@@ -1,8 +1,10 @@
 package tech.jiangtao.pushservice.db;
 
 import tech.jiangtao.pushservice.model.TigPubsub;
+import tigase.db.DataRepository;
 import tigase.db.Repository;
 import tigase.db.TigaseDBException;
+import tigase.db.UserRepository;
 
 /**
  * @class: PubSubRepository </br>

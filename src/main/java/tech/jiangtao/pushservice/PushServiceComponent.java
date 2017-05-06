@@ -6,16 +6,29 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.json.JSONObject;
 import redis.clients.jedis.JedisPubSub;
+import tech.jiangtao.pushservice.db.PubSubRepository;
+import tech.jiangtao.pushservice.db.PubSubRepositoryImpl;
 import tech.jiangtao.pushservice.db.RedisRepository;
 import tech.jiangtao.pushservice.db.RedisRepositoryImpl;
+import tech.jiangtao.pushservice.model.TigPubsub;
 import tigase.conf.ConfigurationException;
+import tigase.db.DBInitException;
 import tigase.db.RepositoryFactory;
+import tigase.db.TigaseDBException;
+import tigase.db.UserRepository;
+import tigase.db.UserRepositoryMDImpl;
+import tigase.db.UserRepositoryPool;
 import tigase.server.AbstractMessageReceiver;
+import tigase.server.Message;
 import tigase.server.Packet;
 import tigase.stats.StatisticsList;
+import tigase.util.TigaseStringprepException;
 import tigase.xml.Element;
+import tigase.xmpp.BareJID;
 import tigase.xmpp.JID;
+import tigase.xmpp.StanzaType;
 
 /**
  * Created by kevin on 28/04/2017.
@@ -34,11 +47,14 @@ public class PushServiceComponent extends AbstractMessageReceiver {
   private static final Logger log = Logger.getLogger(AbstractMessageReceiver.class.getName());
   private static final String PUSH_REPO_CLASS_PROP_KEY = "push-repo-class";
   private static final String PUSH_REPO_URI_PROP_KEY = "push-repo-uri";
+  private static final String PUSH_REDIS_URI = "push-redis-uri";
   private static final String MESSAGE_SENDER = "push-sender";
   private static final String SENDER_EXTENSION = "push:extension";
   private static final String SENDERVALUE = "value";
   private static final String channel = "channel";
   private RedisRepository redisRepository;
+  private PubSubRepository pubSubRepository;
+  private UserRepository userRepository;
 
   @Override public void processPacket(Packet packet) {
     System.out.println(packet.toString());
@@ -135,26 +151,60 @@ public class PushServiceComponent extends AbstractMessageReceiver {
         repoProps.put(entry.getKey(), entry.getValue().toString());
       }
       String uri = (String) props.get(PUSH_REPO_URI_PROP_KEY);
+      String redis_Uri = (String) props.get(PUSH_REDIS_URI);
       if (uri != null) {
-        redisRepository = new RedisRepositoryImpl();
-        redisRepository.init(uri);
-      } else {
-        log.log(Level.SEVERE, "repository uri is NULL!");
-        redisRepository.init("localhost");
-      }
-      new Thread(new Runnable() {
-        @Override public void run() {
-          redisRepository.subscribe(new JedisPubSub() {
-            @Override public void onMessage(String channel, String message) {
-              super.onMessage(channel, message);
-              System.out.println("得到消息为：" + message);
-            }
-          }, channel);
+        Class<? extends PubSubRepository> pubsubClass;
+        try {
+          pubsubClass = RepositoryFactory.getRepoClass(PubSubRepositoryImpl.class, uri);
+          userRepository = RepositoryFactory.getUserRepository(null, uri,repoProps);
+          pubSubRepository = pubsubClass.newInstance();
+          pubSubRepository.initRepository(uri, repoProps);
+        } catch (DBInitException | ClassNotFoundException e) {
+          e.printStackTrace();
         }
+      }
+      new Thread(() -> {
+        redisRepository = new RedisRepositoryImpl();
+        if (redis_Uri != null) {
+          redisRepository.init(redis_Uri);
+        } else {
+          redisRepository.init("localhost");
+        }
+        startSubscribe();
       }).start();
     } catch (InstantiationException | IllegalAccessException e) {
       e.printStackTrace();
     }
+  }
+
+  private void startSubscribe() {
+    String type = "type";
+    String body = "body";
+    String msg = "msg";
+    redisRepository.subscribe(new JedisPubSub() {
+      @Override public void onMessage(String channel, String message) {
+        super.onMessage(channel, message);
+        System.out.println("得到消息为：" + message);
+        JSONObject object = new JSONObject(message);
+        TigPubsub pubsub = new TigPubsub();
+        pubsub.setType(object.getString(type));
+        pubsub.setBody(object.getString(body));
+        pubsub.setMessage(object.getString(msg));
+        try {
+          pubSubRepository.insertPubsubMessage(pubsub);
+          List<BareJID> users = userRepository.getUsers();
+          System.out.println("打印出所有的用户" + users.size());
+          for (BareJID user : users) {
+            Packet push_message = Message.getMessage(JID.jidInstance("admin@"+DISCO_DESCRIPTION+"."+"dc-a4b8eb92-xmpp.jiangtao.tech."),JID.jidInstance(user.toString()),
+                StanzaType.chat,pubsub.getBody(),null,null,null);
+            System.out.println(push_message.toString());
+            addOutPacket(push_message);
+          }
+        } catch (TigaseDBException | TigaseStringprepException e) {
+          e.printStackTrace();
+        }
+      }
+    }, channel);
   }
 
   @Override public Map<String, Object> getDefaults(Map<String, Object> params) {

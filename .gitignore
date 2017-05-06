@@ -68,4 +68,5 @@ crashlytics-build.properties
 fabric.properties
 .idea
 PushService.iml
+target
 
