@@ -1,8 +1,9 @@
 package tech.jiangtao.pushservice.db;
 
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.JedisPubSub;
-import tigase.server.Packet;
 
 /**
  * @class: RedisRepository </br>
@@ -12,13 +13,34 @@ import tigase.server.Packet;
  * @date: 03/05/2017 04:38</br>
  * @version: 0.0.1 </br>
  **/
-public interface RedisRepository {
+public abstract class RedisRepository {
 
-  public Jedis init(String address);
+  private static JedisPool jedisPool;
+  private volatile JedisPoolConfig jedisPoolConfig;
+  public JedisPool init(String address) {
+    if (jedisPoolConfig==null){
+      synchronized (this){
+        jedisPoolConfig = new JedisPoolConfig();
+        jedisPoolConfig.setMaxTotal(1024);
+        jedisPoolConfig.setMaxIdle(100);
+        jedisPoolConfig.setMaxWaitMillis(100);
+        jedisPoolConfig.setTestOnBorrow(false);
+        jedisPoolConfig.setTestOnReturn(true);
+        jedisPool = new JedisPool(jedisPoolConfig, address, 6379, 2000);
+      }
+    }
+    return jedisPool;
+  }
 
-  public Jedis get();
+  public static Jedis get() {
+    return jedisPool.getResource();
+  }
 
-  public void subscribe(JedisPubSub jedisPubSub, String channel);
+  public void subscribe(JedisPubSub jedisPubSub, String channel) {
+    get().subscribe(jedisPubSub, channel);
+  }
 
-  public void unSubscribe(String channel,JedisPubSub jedisPubSub);
+  public void unSubscribe(String channel, JedisPubSub jedisPubSub) {
+    jedisPubSub.unsubscribe();
+  }
 }

@@ -15,6 +15,7 @@ import tech.jiangtao.pushservice.db.RedisRepositoryImpl;
 import tech.jiangtao.pushservice.model.TigPubsub;
 import tigase.conf.ConfigurationException;
 import tigase.db.DBInitException;
+import tigase.db.DataRepository;
 import tigase.db.RepositoryFactory;
 import tigase.db.TigaseDBException;
 import tigase.db.UserRepository;
@@ -58,6 +59,9 @@ public class PushServiceComponent extends AbstractMessageReceiver {
 
   @Override public void processPacket(Packet packet) {
     System.out.println(packet.toString());
+    // 客户端收到消息后，返回确认消息
+    // 将用户从redis中除去
+    RedisRepository.get().srem(packet.getPacketFrom().getBareJID().toString());
   }
 
   @Override public int processingInThreads() {
@@ -156,13 +160,14 @@ public class PushServiceComponent extends AbstractMessageReceiver {
         Class<? extends PubSubRepository> pubsubClass;
         try {
           pubsubClass = RepositoryFactory.getRepoClass(PubSubRepositoryImpl.class, uri);
-          userRepository = RepositoryFactory.getUserRepository(null, uri,repoProps);
+          userRepository = RepositoryFactory.getUserRepository(null, uri, repoProps);
           pubSubRepository = pubsubClass.newInstance();
           pubSubRepository.initRepository(uri, repoProps);
         } catch (DBInitException | ClassNotFoundException e) {
           e.printStackTrace();
         }
       }
+      // 线程走了两次或者三次
       new Thread(() -> {
         redisRepository = new RedisRepositoryImpl();
         if (redis_Uri != null) {
@@ -187,7 +192,7 @@ public class PushServiceComponent extends AbstractMessageReceiver {
         System.out.println("得到消息为：" + message);
         JSONObject object = new JSONObject(message);
         TigPubsub pubsub = new TigPubsub();
-        pubsub.setType(object.getString(type));
+        pubsub.setPushType(object.getString(type));
         pubsub.setBody(object.getString(body));
         pubsub.setMessage(object.getString(msg));
         try {
@@ -195,8 +200,13 @@ public class PushServiceComponent extends AbstractMessageReceiver {
           List<BareJID> users = userRepository.getUsers();
           System.out.println("打印出所有的用户" + users.size());
           for (BareJID user : users) {
-            Packet push_message = Message.getMessage(JID.jidInstance("admin@"+DISCO_DESCRIPTION+"."+"dc-a4b8eb92-xmpp.jiangtao.tech."),JID.jidInstance(user.toString()),
-                StanzaType.chat,pubsub.getBody(),null,null,null);
+            RedisRepository.get().sadd(pubsub.getChannelName(), user.toString());
+          }
+          for (BareJID user : users) {
+            Packet push_message = Message.getMessage(JID.jidInstance(
+                "admin@" + DISCO_DESCRIPTION + "." + "dc-a4b8eb92-xmpp.jiangtao.tech."),
+                JID.jidInstance(user.toString()),
+                StanzaType.chat, pubsub.getBody(), null, null, null);
             System.out.println(push_message.toString());
             addOutPacket(push_message);
           }

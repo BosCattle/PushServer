@@ -42,7 +42,7 @@ public class PubSubRepositoryImpl implements PubSubRepository {
       PreparedStatement preparedStatement =
           dataRepository.getPreparedStatement(null, INSERT_MESSAGE);
       synchronized (preparedStatement) {
-        preparedStatement.setString(1, pubsub.getType());
+        preparedStatement.setString(1, pubsub.getPushType());
         preparedStatement.setString(2, pubsub.getBody());
         preparedStatement.setString(3, pubsub.getMessage());
         a = preparedStatement.executeUpdate();
