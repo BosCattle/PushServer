@@ -1,5 +1,6 @@
 package tech.jiangtao.pushservice;
 
+import com.google.gson.Gson;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -11,16 +12,12 @@ import redis.clients.jedis.JedisPubSub;
 import tech.jiangtao.pushservice.db.PubSubRepository;
 import tech.jiangtao.pushservice.db.PubSubRepositoryImpl;
 import tech.jiangtao.pushservice.db.RedisRepository;
-import tech.jiangtao.pushservice.db.RedisRepositoryImpl;
 import tech.jiangtao.pushservice.model.TigPubsub;
 import tigase.conf.ConfigurationException;
 import tigase.db.DBInitException;
-import tigase.db.DataRepository;
 import tigase.db.RepositoryFactory;
 import tigase.db.TigaseDBException;
 import tigase.db.UserRepository;
-import tigase.db.UserRepositoryMDImpl;
-import tigase.db.UserRepositoryPool;
 import tigase.server.AbstractMessageReceiver;
 import tigase.server.Message;
 import tigase.server.Packet;
@@ -49,20 +46,19 @@ public class PushServiceComponent extends AbstractMessageReceiver {
   private static final String PUSH_REPO_CLASS_PROP_KEY = "push-repo-class";
   private static final String PUSH_REPO_URI_PROP_KEY = "push-repo-uri";
   private static final String PUSH_REDIS_URI = "push-redis-uri";
-  private static final String MESSAGE_SENDER = "push-sender";
-  private static final String SENDER_EXTENSION = "push:extension";
-  private static final String SENDERVALUE = "value";
   private static final String channel = "channel";
-  private RedisRepository redisRepository;
+  private static final String MESSAGE_SENDER = "message_type";
+  private static final String SENDER_EXTENSION = "message:extension";
+  private static final String TYPE = "type";
   private PubSubRepository pubSubRepository;
   private UserRepository userRepository;
   private static int result = 0;
+  private static String ip;
 
   @Override public void processPacket(Packet packet) {
     System.out.println(packet.toString());
     // 客户端收到消息后，返回确认消息
     // 将用户从redis中除去
-    RedisRepository.get().srem(packet.getPacketFrom().getBareJID().toString());
   }
 
   @Override public int processingInThreads() {
@@ -172,12 +168,12 @@ public class PushServiceComponent extends AbstractMessageReceiver {
       ++result;
       if (result <= 1) {
         new Thread(() -> {
-          redisRepository = new RedisRepositoryImpl();
           if (redis_Uri != null) {
-            redisRepository.init(redis_Uri);
+            ip = redis_Uri;
           } else {
-            redisRepository.init("localhost");
+            ip = "localhost";
           }
+          RedisRepository.getInstance().getJedis(ip, 6379);
           startSubscribe();
         }).start();
       }
@@ -186,36 +182,41 @@ public class PushServiceComponent extends AbstractMessageReceiver {
     }
   }
 
+  /**
+   * <message_type xmlns="message:extension"><type>groupChat</type></message_type>
+   */
   private void startSubscribe() {
-    String type = "type";
-    String body = "body";
-    String msg = "msg";
-    redisRepository.subscribe(new JedisPubSub() {
+    String type = "pushType";
+    String msg = "message";
+    String allType = "all";
+    String listType = "list";
+    RedisRepository.getInstance().getJedis(ip, 6379).subscribe(new JedisPubSub() {
       @Override public void onMessage(String channel, String message) {
         super.onMessage(channel, message);
         System.out.println("得到消息为：" + message);
-        JSONObject object = new JSONObject(message);
-        TigPubsub pubsub = new TigPubsub();
-        pubsub.setPushType(object.getString(type));
-        pubsub.setBody(object.getString(body));
-        pubsub.setMessage(object.getString(msg));
+        TigPubsub pubsub = new Gson().fromJson(message,TigPubsub.class);
         try {
           pubSubRepository.insertPubsubMessage(pubsub);
-          List<BareJID> users = userRepository.getUsers();
-          System.out.println("打印出所有的用户" + users.size());
-          for (BareJID user : users) {
-            // redis.clients.jedis.exceptions.JedisDataException: value sent to redis cannot be null
-            System.out.println(user);
-            System.out.println(user.toString());
-            RedisRepository.get().sadd(pubsub.getChannelName(), user.toString());
-          }
-          for (BareJID user : users) {
-            Packet push_message = Message.getMessage(JID.jidInstance(
-                "admin@" + DISCO_DESCRIPTION + "." + "dc-a4b8eb92-xmpp.jiangtao.tech."),
-                JID.jidInstance(user.toString()),
-                StanzaType.chat, pubsub.getBody(), null, null, null);
-            System.out.println(push_message.toString());
-            addOutPacket(push_message);
+          if (pubsub.getPushType().equals(allType)) {
+            List<BareJID> users = userRepository.getUsers();
+            System.out.println("打印出所有的用户" + users.size());
+            for (BareJID user : users) {
+              Packet push_message = Message.getMessage(JID.jidInstance(
+                  "admin@" + DISCO_DESCRIPTION + "." + "dc-a4b8eb92-xmpp.jiangtao.tech."),
+                  JID.jidInstance(user.toString()),
+                  StanzaType.chat, pubsub.getMessage(), null, null, null);
+              Element event =
+                  new Element(MESSAGE_SENDER, new String[] {"xmlns"},
+                      new String[] {SENDER_EXTENSION});
+              event.addChild(new Element(TYPE, "push"));
+              //需要加上sender，发送者是谁
+              push_message.getElement().removeChild(event);
+              push_message.getElement().addChild(event);
+              System.out.println(push_message.toString());
+              addOutPacket(push_message);
+            }
+          }else if (pubsub.getPushType().equals(listType)){
+            log.log(Level.SEVERE,"针对单个或者多个用户，但不是全部用户....");
           }
         } catch (TigaseDBException | TigaseStringprepException e) {
           e.printStackTrace();
@@ -240,11 +241,5 @@ public class PushServiceComponent extends AbstractMessageReceiver {
 
   @Override public void release() {
     super.release();
-  }
-
-  private class RedisThread implements Runnable {
-    @Override public void run() {
-
-    }
   }
 }
