@@ -56,6 +56,7 @@ public class PushServiceComponent extends AbstractMessageReceiver {
   private RedisRepository redisRepository;
   private PubSubRepository pubSubRepository;
   private UserRepository userRepository;
+  private static int result = 0;
 
   @Override public void processPacket(Packet packet) {
     System.out.println(packet.toString());
@@ -168,15 +169,18 @@ public class PushServiceComponent extends AbstractMessageReceiver {
         }
       }
       // 线程走了两次或者三次
-      new Thread(() -> {
-        redisRepository = new RedisRepositoryImpl();
-        if (redis_Uri != null) {
-          redisRepository.init(redis_Uri);
-        } else {
-          redisRepository.init("localhost");
-        }
-        startSubscribe();
-      }).start();
+      ++result;
+      if (result <= 1) {
+        new Thread(() -> {
+          redisRepository = new RedisRepositoryImpl();
+          if (redis_Uri != null) {
+            redisRepository.init(redis_Uri);
+          } else {
+            redisRepository.init("localhost");
+          }
+          startSubscribe();
+        }).start();
+      }
     } catch (InstantiationException | IllegalAccessException e) {
       e.printStackTrace();
     }
@@ -200,6 +204,9 @@ public class PushServiceComponent extends AbstractMessageReceiver {
           List<BareJID> users = userRepository.getUsers();
           System.out.println("打印出所有的用户" + users.size());
           for (BareJID user : users) {
+            // redis.clients.jedis.exceptions.JedisDataException: value sent to redis cannot be null
+            System.out.println(user);
+            System.out.println(user.toString());
             RedisRepository.get().sadd(pubsub.getChannelName(), user.toString());
           }
           for (BareJID user : users) {
@@ -233,5 +240,11 @@ public class PushServiceComponent extends AbstractMessageReceiver {
 
   @Override public void release() {
     super.release();
+  }
+
+  private class RedisThread implements Runnable {
+    @Override public void run() {
+
+    }
   }
 }
