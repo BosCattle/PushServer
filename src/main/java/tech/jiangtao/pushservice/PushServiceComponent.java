@@ -7,11 +7,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.json.JSONObject;
 import redis.clients.jedis.JedisPubSub;
 import tech.jiangtao.pushservice.db.PubSubRepository;
 import tech.jiangtao.pushservice.db.PubSubRepositoryImpl;
-import tech.jiangtao.pushservice.db.RedisRepository;
 import tech.jiangtao.pushservice.model.TigPubsub;
 import tigase.conf.ConfigurationException;
 import tigase.db.DBInitException;
@@ -21,6 +19,7 @@ import tigase.db.UserRepository;
 import tigase.server.AbstractMessageReceiver;
 import tigase.server.Message;
 import tigase.server.Packet;
+import tigase.server.redis.RedisAbstractMessageReceiver;
 import tigase.stats.StatisticsList;
 import tigase.util.TigaseStringprepException;
 import tigase.xml.Element;
@@ -33,7 +32,7 @@ import tigase.xmpp.StanzaType;
  * XMPP推送组件
  * 并非在这儿建立链接，需要在初始化数据仓库的时候使用
  */
-public class PushServiceComponent extends AbstractMessageReceiver {
+public class PushServiceComponent extends RedisAbstractMessageReceiver {
 
   private static final String NODE = "http://jabber.org/protocol/push-server";
   private static final String XMLNS = NODE;
@@ -45,7 +44,6 @@ public class PushServiceComponent extends AbstractMessageReceiver {
   private static final Logger log = Logger.getLogger(AbstractMessageReceiver.class.getName());
   private static final String PUSH_REPO_CLASS_PROP_KEY = "push-repo-class";
   private static final String PUSH_REPO_URI_PROP_KEY = "push-repo-uri";
-  private static final String PUSH_REDIS_URI = "push-redis-uri";
   private static final String channel = "channel";
   private static final String MESSAGE_SENDER = "message_type";
   private static final String SENDER_EXTENSION = "message:extension";
@@ -53,7 +51,6 @@ public class PushServiceComponent extends AbstractMessageReceiver {
   private PubSubRepository pubSubRepository;
   private UserRepository userRepository;
   private static int result = 0;
-  private static String ip;
 
   @Override public void processPacket(Packet packet) {
     System.out.println(packet.toString());
@@ -152,7 +149,6 @@ public class PushServiceComponent extends AbstractMessageReceiver {
         repoProps.put(entry.getKey(), entry.getValue().toString());
       }
       String uri = (String) props.get(PUSH_REPO_URI_PROP_KEY);
-      String redis_Uri = (String) props.get(PUSH_REDIS_URI);
       if (uri != null) {
         Class<? extends PubSubRepository> pubsubClass;
         try {
@@ -167,15 +163,8 @@ public class PushServiceComponent extends AbstractMessageReceiver {
       // 线程走了两次或者三次
       ++result;
       if (result <= 1) {
-        new Thread(() -> {
-          if (redis_Uri != null) {
-            ip = redis_Uri;
-          } else {
-            ip = "localhost";
-          }
-          RedisRepository.getInstance().getJedis(ip, 6379);
-          startSubscribe();
-        }).start();
+        //new Thread(this::startSubscribe).start();
+        startSubscribe();
       }
     } catch (InstantiationException | IllegalAccessException e) {
       e.printStackTrace();
@@ -190,7 +179,7 @@ public class PushServiceComponent extends AbstractMessageReceiver {
     String msg = "message";
     String allType = "all";
     String listType = "list";
-    RedisRepository.getInstance().getJedis(ip, 6379).subscribe(new JedisPubSub() {
+    getJedis().subscribe(new JedisPubSub() {
       @Override public void onMessage(String channel, String message) {
         super.onMessage(channel, message);
         System.out.println("得到消息为：" + message);
