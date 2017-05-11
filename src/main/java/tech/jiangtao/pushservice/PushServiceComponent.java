@@ -163,8 +163,7 @@ public class PushServiceComponent extends RedisAbstractMessageReceiver {
       // 线程走了两次或者三次
       ++result;
       if (result <= 1) {
-        //new Thread(this::startSubscribe).start();
-        startSubscribe();
+        new Thread(this::startSubscribe).start();
       }
     } catch (InstantiationException | IllegalAccessException e) {
       e.printStackTrace();
